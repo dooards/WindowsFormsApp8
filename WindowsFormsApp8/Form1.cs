@@ -19,6 +19,7 @@ namespace WindowsFormsApp8
         string[] Rxline;
         bool CITYTEST = false;
         bool SENSTEST = false;
+        bool CONNECT = false;
         
         
         
@@ -30,45 +31,85 @@ namespace WindowsFormsApp8
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            
+            tBoxDATAOUT.Visible = false;
+            lstBoxDATAIN.Visible = false;
+            btnSENDDATA.Visible = false;
+            btnCLEARDATAIN.Visible = false;
+            button1.Enabled = false;
+
+
             string[] ports = SerialPort.GetPortNames();
             cBoxCOMPORT.Items.AddRange(ports);
 
-            btnOPEN.Enabled = true;
-            btnCLOSE.Enabled = false;
 
-            string[] files = Directory.GetFiles(
-                @"C:\water", "*.csv", SearchOption.AllDirectories);
-
-            //lstBoxID.Items.AddRange(files);
-            tBoxLIST.Text = files[0];
+            try
+            {
+                string[] files = Directory.GetFiles(".", "*.csv", SearchOption.AllDirectories);
+                //lstBoxID.Items.AddRange(files);
+                tBoxLIST.Text = files[0].Substring(2);
+                lblSTATUSCOM.Text = "ツールを接続して下さい。";
+                lblSTATUSCOM.Update();
+            }
+            catch(Exception)
+            {
+                lblSTATUSCOM.Text = "ID一覧ファイルがありません。";
+                lblSTATUSCOM.Update();
+            }
         }
 
         private void btnOPEN_Click(object sender, EventArgs e)
         {
-            try
+            if (CONNECT == false)
             {
-                serialPort1.PortName = cBoxCOMPORT.Text;
-                serialPort1.BaudRate = Convert.ToInt32(cBoxBAUDRATE.Text);
-                serialPort1.DataBits = Convert.ToInt32(cBoxDATABITS.Text);
-                serialPort1.StopBits = (StopBits)Enum.Parse(typeof(StopBits), cBoxSTOPBITS.Text);
-                serialPort1.Parity = (Parity)Enum.Parse(typeof(Parity), cBoxPARITYBITS.Text);
+                try
+                {
+                    progressBar1.Value = 50;
 
-                serialPort1.DataReceived += new SerialDataReceivedEventHandler(serialPort1_DataReceived);
+                    serialPort1.PortName = cBoxCOMPORT.Text;
+                    serialPort1.BaudRate = 115200; // Convert.ToInt32(cBoxBAUDRATE.Text);
+                    serialPort1.DataBits = 8; // Convert.ToInt32(cBoxDATABITS.Text);
+                    serialPort1.StopBits = (StopBits)Enum.Parse(typeof(StopBits), "One");
+                    serialPort1.Parity = (Parity)Enum.Parse(typeof(Parity), "None");
+                    serialPort1.DataReceived += new SerialDataReceivedEventHandler(serialPort1_DataReceived);
 
-                serialPort1.Open();
-                progressBar1.Value = 100;
-                lblSTATUSCOM.Text = "ON";
-                btnOPEN.Enabled = false;
-                btnCLOSE.Enabled = true;
+                    System.Threading.Thread.Sleep(1000);
 
+                    serialPort1.Open();
+                    progressBar1.Value = 100;
+
+                    lblSTATUSCOM.Text = "                                                      ";
+                    lblSTATUSCOM.Update();
+                    lblSTATUSCOM.Text = "接続済み 磁石を近づけて起動して下さい。";
+                    lblSTATUSCOM.Update();
+
+                    btnOPEN.Text = "切断";
+                    CONNECT = true;
+
+                }
+
+                catch (Exception)
+                {
+                    lblSTATUSCOM.Text = "ツールがありません。";
+                    lblSTATUSCOM.Update();
+                    progressBar1.Value = 0;
+                }
             }
-
-            catch(Exception err)
+            else if(CONNECT ==true)
             {
-                MessageBox.Show(err.Message,"Error", MessageBoxButtons .OK, MessageBoxIcon.Error);
-                btnOPEN.Enabled = true;
-                btnCLOSE.Enabled = false;
+                if (serialPort1.IsOpen)
+                {
+                    progressBar1.Value = 50;
+                    System.Threading.Thread.Sleep(1000);
+                    
+                    serialPort1.Close();
+                    progressBar1.Value = 0;
+                    lblSTATUSCOM.Text = "切断済み";
+                    lblSTATUSCOM.Update();
+
+                }
+
+                btnOPEN.Text = "接続";
+                CONNECT = false;
             }
 
         }
@@ -77,13 +118,21 @@ namespace WindowsFormsApp8
         {
             if(serialPort1.IsOpen)
             {
+                progressBar1.Value = 50;
+                System.Threading.Thread.Sleep(750);
+
+                lblSTATUSCOM.Text = "                                                      ";
+                lblSTATUSCOM.Update();
+                lblSTATUSCOM.Text = "切断済み";
+                lblSTATUSCOM.Update();
                 serialPort1.Close();
-                progressBar1.Value = 0;
-                lblSTATUSCOM.Text = "OFF";
-                btnOPEN.Enabled = true;
-                btnCLOSE.Enabled = false;
 
             }
+
+            progressBar1.Value = 0;
+            System.Threading.Thread.Sleep(500);
+            Application.Exit();
+
         }
 
         private void btnSENDDATA_Click(object sender, EventArgs e)
@@ -121,10 +170,34 @@ namespace WindowsFormsApp8
                     startUPERROR(); 
                 }
 
+                if (s.Contains("6666"))
+                {
+                    startUPERROR();
+                }
+
+                if (s.Contains("START TEST"))
+                {
+                    progressBar1.Value = 25;
+                    lblSTATUSCOM.Text = "                                                      ";
+                    lblSTATUSCOM.Update();
+                    lblSTATUSCOM.Text = "起動中.";
+                    lblSTATUSCOM.Update();
+                }
+
+                if (s.Contains("WAKEUP"))
+                {
+                    progressBar1.Value = 70;
+                    lblSTATUSCOM.Text = "起動中..";
+                    lblSTATUSCOM.Update();
+                }
+
                 if (s.Contains("NUM="))
                 {
                     int len = s.Length;
                     tBoxNum.Text = s.Substring(len-11);
+                    progressBar1.Value = 100;
+                    lblSTATUSCOM.Text = "起動完了　書込みできます。";
+                    lblSTATUSCOM.Update();
                 }
 
 
@@ -150,14 +223,6 @@ namespace WindowsFormsApp8
 
 
                 }
-
-
-                 
-
-                    
-
-
-
 
                 
             }
@@ -186,6 +251,8 @@ namespace WindowsFormsApp8
         {
             try
             {
+     
+
                 StreamReader sr = new StreamReader(tBoxLIST.Text, Encoding.Default);
 
                 string dat;
@@ -204,6 +271,7 @@ namespace WindowsFormsApp8
                     Application.DoEvents();
                 }
                 sr.Close();
+
             }
             catch
             {
@@ -216,6 +284,10 @@ namespace WindowsFormsApp8
         {
             if (serialPort1.IsOpen)
             {
+                lblSTATUSCOM.Text = "                                                      ";
+                lblSTATUSCOM.Update();
+                lblSTATUSCOM.Text = "書込み中";
+                lblSTATUSCOM.Update();
                 progressBar1.Value = 0;
                 WRITECITY();
                 System.Threading.Thread.Sleep(1000);
@@ -226,7 +298,11 @@ namespace WindowsFormsApp8
                 CHECKID();
                 System.Threading.Thread.Sleep(1000);
                 progressBar1.Value = 100;
+                lblSTATUSCOM.Text = "書込み完了";
+                lblSTATUSCOM.Update();
             }
+
+            button1.Enabled = false;
 
         }
 
@@ -252,6 +328,16 @@ namespace WindowsFormsApp8
             serialPort1.WriteLine(CITYCODE);
 
             
+        }
+
+        private void tBoxSENSID_TextChanged(object sender, EventArgs e)
+        {
+            button1.Enabled = true;
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show("AK-140観測局番号書込みソフトウェア Version 1.00" + Environment.NewLine + "Copyright WORKSHOP HATSUKARI ULtd.");
         }
     }
 }
